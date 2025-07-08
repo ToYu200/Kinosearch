@@ -1,0 +1,58 @@
+version: '3.7'
+services:
+  proxy:
+    container_name: movie-pinterest-proxy
+    image: nginx:1.24-alpine-slim
+    volumes:
+      - type: bind
+        source: ./nginx.conf
+        target: /etc/nginx/nginx.conf
+        read_only: true
+    depends_on:
+      movie-pinterest-api:
+        condition: service_started
+    ports:
+      - "8080:80"
+    networks:
+      - movie-pinterest-net
+
+  movie-pinterest-api:
+    container_name: movie-pinterest-api
+    image: movie-pinterest-api
+    build:
+      context: ./api/
+    networks:
+      - movie-pinterest-net
+    environment:
+      NODE_ENV: prod
+    depends_on:
+      movie-pinterest-api-pg:
+        condition: service_healthy
+
+  movie-pinterest-front:
+    container_name: movie-pinterest-front
+    image: movie-pinterest-front
+    build:
+      context: ./front/
+    networks:
+      - movie-pinterest-net
+    environment:
+      NODE_ENV: prod
+
+  movie-pinterest-api-pg:
+    container_name: movie-pinterest-api-pg
+    image: postgres:14
+    networks:
+      - movie-pinterest-net
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: moviepinterest
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+networks:
+  movie-pinterest-net:
